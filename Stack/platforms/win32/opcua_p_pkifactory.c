@@ -67,6 +67,9 @@ OpcUa_InitializeStatus(OpcUa_Module_P_PKIFactory, "CreatePKIProvider");
             a_pPkiProvider->SaveCertificate         = OpcUa_P_OpenSSL_PKI_NoSecurity_SaveCertificate;
             a_pPkiProvider->LoadPrivateKeyFromFile  = OpcUa_P_OpenSSL_PKI_NoSecurity_LoadPrivateKeyFromFile;
             a_pPkiProvider->ExtractCertificateData  = OpcUa_P_OpenSSL_PKI_NoSecurity_ExtractCertificateData;
+//(C) 2019 Pilz GmbH & Co. KG - START
+            a_pPkiProvider->ExtractCertificateSubjectCNandDC  = OpcUa_P_OpenSSL_PKI_NoSecurity_ExtractCertificateSubjectCNandDC;
+//(C) 2019 Pilz GmbH & Co. KG - END
             break;
         }
 #if OPCUA_SUPPORT_PKI
@@ -140,6 +143,17 @@ OpcUa_InitializeStatus(OpcUa_Module_P_PKIFactory, "CreatePKIProvider");
             {
                 a_pPkiProvider->ExtractCertificateData = pOverride->ExtractCertificateData;
             }
+
+//(C) 2019 Pilz GmbH & Co. KG - START
+            if(pOverride->ExtractCertificateSubjectCNandDC == OpcUa_Null)
+            {
+                a_pPkiProvider->ExtractCertificateSubjectCNandDC = OpcUa_P_OpenSSL_PKI_ExtractCertificateSubjectCNandDC;
+            }
+            else
+            {
+                a_pPkiProvider->ExtractCertificateSubjectCNandDC = pOverride->ExtractCertificateSubjectCNandDC;
+            }
+//(C) 2019 Pilz GmbH & Co. KG - END
             break;
         }
 #endif /* OPCUA_SUPPORT_PKI_OVERRIDE */
@@ -153,6 +167,9 @@ OpcUa_InitializeStatus(OpcUa_Module_P_PKIFactory, "CreatePKIProvider");
             a_pPkiProvider->SaveCertificate         = OpcUa_P_OpenSSL_PKI_SaveCertificate;
             a_pPkiProvider->LoadPrivateKeyFromFile  = OpcUa_P_OpenSSL_PKI_LoadPrivateKeyFromFile;
             a_pPkiProvider->ExtractCertificateData  = OpcUa_P_OpenSSL_PKI_ExtractCertificateData;
+//(C) 2019 Pilz GmbH & Co. KG - START
+            a_pPkiProvider->ExtractCertificateSubjectCNandDC  = OpcUa_P_OpenSSL_PKI_ExtractCertificateSubjectCNandDC;
+//(C) 2019 Pilz GmbH & Co. KG - END
             break;
         }
 #endif /* OPCUA_SUPPORT_PKI_OPENSSL */
@@ -166,6 +183,9 @@ OpcUa_InitializeStatus(OpcUa_Module_P_PKIFactory, "CreatePKIProvider");
             a_pPkiProvider->SaveCertificate         = OpcUa_P_Win32_PKI_SaveCertificate;
             a_pPkiProvider->LoadPrivateKeyFromFile  = OpcUa_P_Win32_LoadPrivateKeyFromKeyStore;
             a_pPkiProvider->ExtractCertificateData  = OpcUa_P_OpenSSL_PKI_ExtractCertificateData;
+//(C) 2019 Pilz GmbH & Co. KG - START
+            a_pPkiProvider->ExtractCertificateSubjectCNandDC  = OpcUa_P_OpenSSL_PKI_ExtractCertificateSubjectCNandDC;
+//(C) 2019 Pilz GmbH & Co. KG - END
             break;
         }
 #endif /* OPCUA_SUPPORT_PKI_WIN32 */
@@ -198,6 +218,9 @@ OpcUa_InitializeStatus(OpcUa_Module_P_PKIFactory, "DeletePKIProvider");
     a_pProvider->SaveCertificate        = OpcUa_Null;
     a_pProvider->ValidateCertificate    = OpcUa_Null;
     a_pProvider->ExtractCertificateData = OpcUa_Null;
+//(C) 2019 Pilz GmbH & Co. KG - START
+    a_pProvider->ExtractCertificateSubjectCNandDC = OpcUa_Null;
+//(C) 2019 Pilz GmbH & Co. KG - END
 
 OpcUa_ReturnStatusCode;
 OpcUa_BeginErrorHandling;

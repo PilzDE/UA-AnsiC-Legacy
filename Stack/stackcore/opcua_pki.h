@@ -219,6 +219,21 @@ typedef OpcUa_StatusCode (OpcUa_PKIProvider_PfnExtractCertificateData)(
     OpcUa_UInt32*               pCertRawLength);
 
 /**
+//(C) 2019 Pilz GmbH & Co. KG - START
+@brief Extracts CN and DC of the subject from a certificate store object.
+
+@param pCertificate[in] The certificate to examine.
+@param pSubjectCN[out, optional] The Common Name of the subject name of the certificate.
+@param pSubjectDC[out, optional] The Domain Component of the subject name of the certificate.
+
+*/
+typedef OpcUa_StatusCode (OpcUa_PKIProvider_PfnExtractCertificateSubjectCNandDC)(
+    OpcUa_ByteString*           pCertificate,
+    OpcUa_ByteString*           pSubjectCN,
+    OpcUa_ByteString*           pSubjectDC);
+//(C) 2019 Pilz GmbH & Co. KG - END
+
+/**
   @brief The PKI provider object.
 */
 typedef struct _OpcUa_PKIProvider
@@ -231,6 +246,9 @@ typedef struct _OpcUa_PKIProvider
     OpcUa_PKIProvider_PfnLoadCertificate*        LoadCertificate;
     OpcUa_PKIProvider_PfnCloseCertificateStore*  CloseCertificateStore;
     OpcUa_PKIProvider_PfnExtractCertificateData* ExtractCertificateData;
+//(C) 2019 Pilz GmbH & Co. KG - START
+    OpcUa_PKIProvider_PfnExtractCertificateSubjectCNandDC* ExtractCertificateSubjectCNandDC;
+//(C) 2019 Pilz GmbH & Co. KG - END
 }
 OpcUa_PKIProvider;
 

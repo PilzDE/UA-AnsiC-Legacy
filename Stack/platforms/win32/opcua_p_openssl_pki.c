@@ -30,6 +30,7 @@
 /* UA platform definitions */
 #include <opcua_p_internal.h>
 #include <opcua_p_memory.h>
+#include <opcua_string.h>
 
 #if OPCUA_REQUIRE_OPENSSL
 
@@ -817,6 +818,14 @@ OpcUa_StatusCode OpcUa_P_OpenSSL_PKI_LoadCertificate(
     OpcUa_Byte*     p                   = OpcUa_Null;
     BIO*            pCertificateFile    = OpcUa_Null;
     X509*           pTmpCert            = OpcUa_Null;
+//(C) 2019 Pilz GmbH & Co. KG - START
+    OpcUa_Boolean   dERFileUsed         = OpcUa_True;
+    const char*     pFilePath           = OpcUa_Null;
+#ifdef UNDER_CE
+    unsigned int    pathSize;
+#endif
+    OpcUa_String*   filePathNew         = OpcUa_Null;
+//(C) 2019 Pilz GmbH & Co. KG - END
 
     OpcUa_InitializeStatus(OpcUa_Module_P_OpenSSL, "PKI_LoadCertificate");
 
@@ -827,14 +836,62 @@ OpcUa_StatusCode OpcUa_P_OpenSSL_PKI_LoadCertificate(
     OpcUa_ReturnErrorIfArgumentNull(a_pCertificate);
 
     /* read DER certificates */
-    pCertificateFile = BIO_new_file((const char*)a_pLoadHandle, "rb");
+//(C) 2019 Pilz GmbH & Co. KG - START
+    pFilePath = (const char*)a_pLoadHandle;
+    pCertificateFile = BIO_new_file(pFilePath, "r");
+//(C) 2019 Pilz GmbH & Co. KG - END
     OpcUa_GotoErrorIfArgumentNull(pCertificateFile);
 
+//(C) 2019 Pilz GmbH & Co. KG
+    //hint:
+    //if the der-file can't be read then 
+    //first try in binary-mode
+    //secondly try to read the txt-file(was before the pem-file) (only on WinCE as not compilable on Win32)
     if(!(pTmpCert = d2i_X509_bio(pCertificateFile, (X509**)OpcUa_Null)))
     {
-        uStatus = OpcUa_Bad;
-        OpcUa_GotoErrorIfBad(uStatus);
+        //try now binary-mode
+        if(BIO_free (pCertificateFile) == 0)
+        {
+            pCertificateFile = OpcUa_Null;
+            uStatus = OpcUa_Bad;
+            OpcUa_GotoErrorIfBad(uStatus);
+        }
+
+        pCertificateFile = BIO_new_file(pFilePath, "rb");
+        if(!(pTmpCert = d2i_X509_bio(pCertificateFile, (X509**)OpcUa_Null)))
+        {
+#ifndef UNDER_CE    //distinguish as lower code doesn't compile for Win32
+            uStatus = OpcUa_Bad;
+            OpcUa_GotoErrorIfBad(uStatus);
+#else
+            //der-file couldn't be read neither in normal nor in binary-mode -> read txt-file
+            //(replace .der by .txt in path)
+            pathSize = strlen(pFilePath);
+            filePathNew = (OpcUa_String*)OpcUa_Alloc(sizeof(OpcUa_String));
+            OpcUa_GotoErrorIfAllocFailed(filePathNew);
+            OpcUa_String_Initialize(filePathNew);
+            uStatus = OpcUa_String_StrnCpy(filePathNew,
+                                            a_pLoadHandle,
+                                            pathSize-4);
+
+            uStatus = OpcUa_String_StrnCat(filePathNew, ".txt",4);
+
+            pCertificateFile = BIO_new_file((const char*)OpcUa_String_GetRawString(filePathNew), "r");
+            OpcUa_GotoErrorIfArgumentNull(pCertificateFile);
+
+            if(!(pTmpCert = PEM_read_bio_X509(pCertificateFile, NULL,0,NULL)))
+            {
+                uStatus = OpcUa_Bad;
+                OpcUa_GotoErrorIfBad(uStatus);
+            }
+            else
+            {
+                dERFileUsed=OpcUa_False;
+            }
+#endif
+        }
     }
+//(C) 2019 Pilz GmbH & Co. KG
 
     a_pCertificate->Length = i2d_X509(pTmpCert, NULL);
     buf = (OpcUa_Byte*)OpcUa_P_Memory_Alloc(a_pCertificate->Length);
@@ -844,10 +901,25 @@ OpcUa_StatusCode OpcUa_P_OpenSSL_PKI_LoadCertificate(
     {
         i2d_X509(pTmpCert, &p);
         X509_free(pTmpCert);
-        if(!(pTmpCert = d2i_X509_bio(pCertificateFile, (X509**)OpcUa_Null)))
+//(C) 2019 Pilz GmbH & Co. KG - START
+        if(dERFileUsed==OpcUa_True)
         {
-            break;
+//(C) 2019 Pilz GmbH & Co. KG - END
+            if(!(pTmpCert = d2i_X509_bio(pCertificateFile, (X509**)OpcUa_Null)))
+            {
+                break;
+            }
+//(C) 2019 Pilz GmbH & Co. KG  - START
         }
+        else
+        {
+            //txt-file seems to be always read completely on the first time -> no second reading and appending necessary
+            //if(!(pTmpCert = PEM_read_bio_X509(pCertificateFile, NULL,0,NULL)))
+            {
+                break;
+            }
+        }
+//(C) 2019 Pilz GmbH & Co. KG - END
         p = OpcUa_P_Memory_ReAlloc(buf, a_pCertificate->Length + i2d_X509(pTmpCert, NULL));
         OpcUa_GotoErrorIfAllocFailed(p);
         buf = p;
@@ -863,6 +935,13 @@ OpcUa_StatusCode OpcUa_P_OpenSSL_PKI_LoadCertificate(
     }
 
     a_pCertificate->Data = buf;
+
+//(C) 2019 Pilz GmbH & Co. KG - START
+    if((dERFileUsed != OpcUa_True) &&(filePathNew != OpcUa_Null))
+    {
+        OpcUa_String_Clear(filePathNew);
+    }
+//(C) 2019 Pilz GmbH & Co. KG - END
 
 OpcUa_ReturnStatusCode;
 OpcUa_BeginErrorHandling;
@@ -1340,5 +1419,168 @@ OpcUa_BeginErrorHandling;
 
 OpcUa_FinishErrorHandling;
 }
+
+/**
+//(C) 2019 Pilz GmbH & Co. KG - START
+@brief Extracts CN and DC of the subject from a certificate store object.
+
+@param pCertificate[in] The certificate to examine.
+@param pSubjectCN[out, optional] The Common Name of the subject name of the certificate.
+@param pSubjectDC[out, optional] The Domain Component of the subject name of the certificate.
+
+*/
+OpcUa_StatusCode OpcUa_P_OpenSSL_PKI_ExtractCertificateSubjectCNandDC(
+OpcUa_ByteString*           a_pCertificate,
+OpcUa_ByteString*           a_pSubjectCN,
+OpcUa_ByteString*           a_pSubjectDC)
+{
+	X509*                       pX509Cert = OpcUa_Null;
+	unsigned char*              pNameCN = OpcUa_Null;
+	unsigned char*              pNameDC = OpcUa_Null;
+	const unsigned char*        p;
+
+	OpcUa_InitializeStatus(OpcUa_Module_P_OpenSSL, "PKI_ExtractCertificateData");
+
+	OpcUa_ReturnErrorIfArgumentNull(a_pCertificate);
+
+	if (a_pSubjectCN != OpcUa_Null)
+	{
+		a_pSubjectCN->Data = OpcUa_Null;
+		a_pSubjectCN->Length = -1;
+	}
+
+	if (a_pSubjectDC != OpcUa_Null)
+	{
+		a_pSubjectDC->Data = OpcUa_Null;
+		a_pSubjectDC->Length = -1;
+	}
+
+	/* convert openssl X509 certificate to DER encoded bytestring certificate */
+	p = a_pCertificate->Data;
+	if (!(pX509Cert = d2i_X509((X509**)OpcUa_Null, &p, a_pCertificate->Length)))
+	{
+		uStatus = OpcUa_Bad;
+		OpcUa_GotoErrorIfBad(uStatus);
+	}
+
+    if (a_pSubjectCN != OpcUa_Null)
+    {
+        X509_NAME_ENTRY *pNameCNEntry;
+        ASN1_STRING *pASN1CN;
+        int cNNotEmpty = 0;
+
+        int nidCN = OBJ_txt2nid("CN");
+        int indexCN = X509_NAME_get_index_by_NID(X509_get_subject_name(pX509Cert), nidCN, -1);
+
+        if (indexCN != -1)
+        {
+            pNameCNEntry = X509_NAME_get_entry(X509_get_subject_name(pX509Cert), indexCN);
+            if (pNameCNEntry)
+            {
+                pASN1CN = X509_NAME_ENTRY_get_data(pNameCNEntry);
+
+                if (pASN1CN != NULL)
+                {
+                    pNameCN = ASN1_STRING_data(pASN1CN);
+
+                    a_pSubjectCN->Length = (OpcUa_Int32)strlen(pNameCN) + 1;
+                    a_pSubjectCN->Data = (OpcUa_Byte*)OpcUa_P_Memory_Alloc(a_pSubjectCN->Length*sizeof(OpcUa_Byte));
+                    OpcUa_GotoErrorIfAllocFailed(a_pSubjectCN->Data);
+                    uStatus = OpcUa_P_Memory_MemCpy(a_pSubjectCN->Data, a_pSubjectCN->Length, pNameCN, a_pSubjectCN->Length);
+                    OpcUa_GotoErrorIfBad(uStatus);
+
+                    cNNotEmpty = 1;
+
+                }
+
+            }
+
+        }
+        
+        if (0 == cNNotEmpty)
+        {
+            //needs to be handled by the caller
+            //strcpy_s(pNameCN, 1, "");
+        }
+
+    }
+
+    if (a_pSubjectDC != OpcUa_Null)
+    {
+        X509_NAME_ENTRY *pNameDCEntry;
+        ASN1_STRING *pASN1DC;
+        int dCNotEmpty = 0;
+
+        int nidDC = OBJ_txt2nid("DC");
+        int indexDC = X509_NAME_get_index_by_NID(X509_get_subject_name(pX509Cert), nidDC, -1);
+
+        if (indexDC != -1)
+        {
+            pNameDCEntry = X509_NAME_get_entry(X509_get_subject_name(pX509Cert), indexDC);
+            if (pNameDCEntry)
+            {
+                pASN1DC = X509_NAME_ENTRY_get_data(pNameDCEntry);
+
+                if (pASN1DC != NULL)
+                {
+                    pNameDC = ASN1_STRING_data(pASN1DC);
+
+                    a_pSubjectDC->Length = (OpcUa_Int32)strlen(pNameDC) + 1;
+                    a_pSubjectDC->Data = (OpcUa_Byte*)OpcUa_P_Memory_Alloc(a_pSubjectDC->Length*sizeof(OpcUa_Byte));
+                    OpcUa_GotoErrorIfAllocFailed(a_pSubjectDC->Data);
+                    uStatus = OpcUa_P_Memory_MemCpy(a_pSubjectDC->Data, a_pSubjectDC->Length, pNameDC, a_pSubjectDC->Length);
+                    OpcUa_GotoErrorIfBad(uStatus);
+
+                    dCNotEmpty = 1;
+                }
+
+            }
+        }
+
+        if (0 == dCNotEmpty)
+        {
+            //needs to be handled by the caller
+            //strcpy_s(pNameCN, 1, L"");
+        }
+
+	}
+
+	X509_free(pX509Cert);
+
+	OpcUa_ReturnStatusCode;
+	OpcUa_BeginErrorHandling;
+
+	if (a_pSubjectCN != OpcUa_Null && a_pSubjectCN->Data != OpcUa_Null)
+	{
+		OpcUa_P_Memory_Free(a_pSubjectCN->Data);
+		a_pSubjectCN->Data = OpcUa_Null;
+		a_pSubjectCN->Length = -1;
+	}
+
+	if (a_pSubjectDC != OpcUa_Null && a_pSubjectDC->Data != OpcUa_Null)
+	{
+		OpcUa_P_Memory_Free(a_pSubjectDC->Data);
+		a_pSubjectDC->Data = OpcUa_Null;
+		a_pSubjectDC->Length = -1;
+	}
+
+    if (pNameCN != OpcUa_Null)
+	{
+        OPENSSL_free(pNameCN);
+	}
+
+    if (pNameDC != OpcUa_Null)
+    {
+        OPENSSL_free(pNameDC);
+    }
+
+	if (pX509Cert != OpcUa_Null)
+	{
+		X509_free(pX509Cert);
+	}
+
+	OpcUa_FinishErrorHandling;
+}
+//(C) 2019 Pilz GmbH & Co. KG - START
 
 #endif /* OPCUA_REQUIRE_OPENSSL */

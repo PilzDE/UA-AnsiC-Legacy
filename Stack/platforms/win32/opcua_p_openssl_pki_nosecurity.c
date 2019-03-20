@@ -156,3 +156,20 @@ OpcUa_StatusCode OpcUa_P_OpenSSL_PKI_NoSecurity_ExtractCertificateData(
 
     return OpcUa_BadNotSupported;
 }
+
+//(C) 2019 Pilz GmbH & Co. KG - START
+/*============================================================================
+ * OpcUa_P_OpenSSL_PKI_NoSecurity_ExtractCertificateData
+ *===========================================================================*/
+OpcUa_StatusCode OpcUa_P_OpenSSL_PKI_NoSecurity_ExtractCertificateSubjectCNandDC(
+    OpcUa_ByteString*           a_pCertificate,
+    OpcUa_ByteString*           a_pSubjectCN,
+    OpcUa_ByteString*           a_pSubjectDC)
+{
+    OpcUa_ReferenceParameter(a_pCertificate);
+    OpcUa_ReferenceParameter(a_pSubjectCN);
+    OpcUa_ReferenceParameter(a_pSubjectDC);
+
+    return OpcUa_BadNotSupported;
+}
+//(C) 2019 Pilz GmbH & Co. KG - END
