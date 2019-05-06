@@ -149,6 +149,19 @@ OpcUa_StatusCode OpcUa_P_OpenSSL_PKI_ExtractCertificateData(
     OpcUa_UInt32*               pSubjectHash,
     OpcUa_UInt32*               pCertRawLength);
 
+/**
+@brief Extracts CN and DC of the subject from a certificate store object.
+
+@param pCertificate[in] The certificate to examine.
+@param pSubjectCN[out, optional] The Common Name of the subject name of the certificate.
+@param pSubjectDC[out, optional] The Domain Component of the subject name of the certificate.
+
+*/
+OpcUa_StatusCode OpcUa_P_OpenSSL_PKI_ExtractCertificateSubjectCNandDC(
+OpcUa_ByteString*           a_pCertificate,
+OpcUa_ByteString*           a_pSubjectCN,
+OpcUa_ByteString*           a_pSubjectDC);
+
 /* NoSecurity functions */
 
 /**
@@ -267,6 +280,19 @@ OpcUa_StatusCode OpcUa_P_OpenSSL_PKI_NoSecurity_ExtractCertificateData(
     OpcUa_ByteString*           pCertThumbprint,
     OpcUa_UInt32*               pSubjectHash,
     OpcUa_UInt32*               pCertRawLength);
+
+/**
+@brief Extracts CN and DC of the subject from a certificate store object. (//JMA)
+
+@param pCertificate[in] The certificate to examine.
+@param pSubjectCN[out, optional] The Common Name of the subject name of the certificate.
+@param pSubjectDC[out, optional] The Domain Component of the subject name of the certificate.
+
+*/
+OpcUa_StatusCode OpcUa_P_OpenSSL_PKI_NoSecurity_ExtractCertificateSubjectCNandDC(
+OpcUa_ByteString*           a_pCertificate,
+OpcUa_ByteString*           a_pSubjectCN,
+OpcUa_ByteString*           a_pSubjectDC);
 
 OPCUA_END_EXTERN_C
 

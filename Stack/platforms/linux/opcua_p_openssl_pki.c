@@ -1289,4 +1289,165 @@ OpcUa_BeginErrorHandling;
 OpcUa_FinishErrorHandling;
 }
 
+/**
+@brief Extracts CN and DC of the subject from a certificate store object. (//JMA)
+
+@param pCertificate[in] The certificate to examine.
+@param pSubjectCN[out, optional] The Common Name of the subject name of the certificate.
+@param pSubjectDC[out, optional] The Domain Component of the subject name of the certificate.
+
+*/
+OpcUa_StatusCode OpcUa_P_OpenSSL_PKI_ExtractCertificateSubjectCNandDC(
+OpcUa_ByteString*           a_pCertificate,
+OpcUa_ByteString*           a_pSubjectCN,
+OpcUa_ByteString*           a_pSubjectDC)
+{
+	X509*                       pX509Cert = OpcUa_Null;
+	unsigned char*              pNameCN = OpcUa_Null;
+	unsigned char*              pNameDC = OpcUa_Null;
+	const unsigned char*        p;
+
+	OpcUa_InitializeStatus(OpcUa_Module_P_OpenSSL, "PKI_ExtractCertificateData");
+
+	OpcUa_ReturnErrorIfArgumentNull(a_pCertificate);
+
+	if (a_pSubjectCN != OpcUa_Null)
+	{
+		a_pSubjectCN->Data = OpcUa_Null;
+		a_pSubjectCN->Length = -1;
+	}
+
+	if (a_pSubjectDC != OpcUa_Null)
+	{
+		a_pSubjectDC->Data = OpcUa_Null;
+		a_pSubjectDC->Length = -1;
+	}
+
+	/* convert openssl X509 certificate to DER encoded bytestring certificate */
+	p = a_pCertificate->Data;
+	if (!(pX509Cert = d2i_X509((X509**)OpcUa_Null, &p, a_pCertificate->Length)))
+	{
+		uStatus = OpcUa_Bad;
+		OpcUa_GotoErrorIfBad(uStatus);
+	}
+
+    if (a_pSubjectCN != OpcUa_Null)
+    {
+        X509_NAME_ENTRY *pNameCNEntry;
+        ASN1_STRING *pASN1CN;
+        int cNNotEmpty = 0;
+
+        int nidCN = OBJ_txt2nid("CN");
+        int indexCN = X509_NAME_get_index_by_NID(X509_get_subject_name(pX509Cert), nidCN, -1);
+
+        if (indexCN != -1)
+        {
+            pNameCNEntry = X509_NAME_get_entry(X509_get_subject_name(pX509Cert), indexCN);
+            if (pNameCNEntry)
+            {
+                pASN1CN = X509_NAME_ENTRY_get_data(pNameCNEntry);
+
+                if (pASN1CN != NULL)
+                {
+                    pNameCN = ASN1_STRING_data(pASN1CN);
+
+                    a_pSubjectCN->Length = (OpcUa_Int32)strlen(pNameCN) + 1;
+                    a_pSubjectCN->Data = (OpcUa_Byte*)OpcUa_P_Memory_Alloc(a_pSubjectCN->Length*sizeof(OpcUa_Byte));
+                    OpcUa_GotoErrorIfAllocFailed(a_pSubjectCN->Data);
+                    uStatus = OpcUa_P_Memory_MemCpy(a_pSubjectCN->Data, a_pSubjectCN->Length, pNameCN, a_pSubjectCN->Length);
+                    OpcUa_GotoErrorIfBad(uStatus);
+
+                    cNNotEmpty = 1;
+
+                }
+
+            }
+
+        }
+        
+        if (0 == cNNotEmpty)
+        {
+            //needs to be handled by the caller
+            //strcpy_s(pNameCN, 1, "");
+        }
+
+    }
+
+    if (a_pSubjectDC != OpcUa_Null)
+    {
+        X509_NAME_ENTRY *pNameDCEntry;
+        ASN1_STRING *pASN1DC;
+        int dCNotEmpty = 0;
+
+        int nidDC = OBJ_txt2nid("DC");
+        int indexDC = X509_NAME_get_index_by_NID(X509_get_subject_name(pX509Cert), nidDC, -1);
+
+        if (indexDC != -1)
+        {
+            pNameDCEntry = X509_NAME_get_entry(X509_get_subject_name(pX509Cert), indexDC);
+            if (pNameDCEntry)
+            {
+                pASN1DC = X509_NAME_ENTRY_get_data(pNameDCEntry);
+
+                if (pASN1DC != NULL)
+                {
+                    pNameDC = ASN1_STRING_data(pASN1DC);
+
+                    a_pSubjectDC->Length = (OpcUa_Int32)strlen(pNameDC) + 1;
+                    a_pSubjectDC->Data = (OpcUa_Byte*)OpcUa_P_Memory_Alloc(a_pSubjectDC->Length*sizeof(OpcUa_Byte));
+                    OpcUa_GotoErrorIfAllocFailed(a_pSubjectDC->Data);
+                    uStatus = OpcUa_P_Memory_MemCpy(a_pSubjectDC->Data, a_pSubjectDC->Length, pNameDC, a_pSubjectDC->Length);
+                    OpcUa_GotoErrorIfBad(uStatus);
+
+                    dCNotEmpty = 1;
+                }
+
+            }
+        }
+
+        if (0 == dCNotEmpty)
+        {
+            //needs to be handled by the caller
+            //strcpy_s(pNameCN, 1, L"");
+        }
+
+	}
+
+	X509_free(pX509Cert);
+
+	OpcUa_ReturnStatusCode;
+	OpcUa_BeginErrorHandling;
+
+	if (a_pSubjectCN != OpcUa_Null && a_pSubjectCN->Data != OpcUa_Null)
+	{
+		OpcUa_P_Memory_Free(a_pSubjectCN->Data);
+		a_pSubjectCN->Data = OpcUa_Null;
+		a_pSubjectCN->Length = 0;
+	}
+
+	if (a_pSubjectDC != OpcUa_Null && a_pSubjectDC->Data != OpcUa_Null)
+	{
+		OpcUa_P_Memory_Free(a_pSubjectDC->Data);
+		a_pSubjectDC->Data = OpcUa_Null;
+		a_pSubjectDC->Length = 0;
+	}
+
+    if (pNameCN != OpcUa_Null)
+	{
+        OPENSSL_free(pNameCN);
+	}
+
+    if (pNameDC != OpcUa_Null)
+    {
+        OPENSSL_free(pNameDC);
+    }
+
+	if (pX509Cert != OpcUa_Null)
+	{
+		X509_free(pX509Cert);
+	}
+
+	OpcUa_FinishErrorHandling;
+}
+
 #endif /* OPCUA_REQUIRE_OPENSSL */
